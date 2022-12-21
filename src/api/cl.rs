@@ -7,9 +7,9 @@ use std::{
     usize, vec,
 };
 
-use super::{ffi::*, OCLErrorKind};
+use crate::Error;
 
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
+use super::{ffi::*, OCLErrorKind};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Platform(cl_platform_id);
