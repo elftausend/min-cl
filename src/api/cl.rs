@@ -349,7 +349,7 @@ pub unsafe fn release_mem_object(ptr: *mut c_void) -> Result<(), Error> {
     Ok(())
 }
 
-pub(crate) fn retain_mem_object(mem: *mut c_void) -> Result<(), Error> {
+pub fn retain_mem_object(mem: *mut c_void) -> Result<(), Error> {
     let value = unsafe { clRetainMemObject(mem) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -409,7 +409,7 @@ pub unsafe fn enqueue_read_buffer<T>(
     }
     Ok(Event(events[0]))
 }
-pub(crate) fn enqueue_full_copy_buffer<T>(
+pub fn enqueue_full_copy_buffer<T>(
     cq: &CommandQueue,
     src_mem: *mut c_void,
     dst_mem: *mut c_void,
@@ -435,7 +435,7 @@ pub(crate) fn enqueue_full_copy_buffer<T>(
     wait_for_event(Event(events[0]))
 }
 
-pub(crate) fn unified_ptr<T>(
+pub fn unified_ptr<T>(
     cq: &CommandQueue,
     ptr: *mut c_void,
     len: usize,
@@ -584,7 +584,7 @@ pub fn build_program(
 }
 
 #[derive(Debug)]
-pub /*(crate)*/ struct Kernel(pub cl_kernel);
+pub /**/ struct Kernel(pub cl_kernel);
 
 impl Drop for Kernel {
     fn drop(&mut self) {
@@ -595,7 +595,7 @@ impl Drop for Kernel {
 unsafe impl Send for Kernel {}
 unsafe impl Sync for Kernel {}
 
-pub(crate) fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Error> {
+pub fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Error> {
     let mut err = 0;
     let cstring = CString::new(str).unwrap();
     let kernel = unsafe { clCreateKernel(program.0, cstring.as_ptr(), &mut err) };
@@ -604,7 +604,7 @@ pub(crate) fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Erro
     }
     Ok(Kernel(kernel))
 }
-pub(crate) fn create_kernels_in_program(program: &Program) -> Result<Vec<Rc<Kernel>>, Error> {
+pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Rc<Kernel>>, Error> {
     let mut n_kernels: u32 = 0;
     let value =
         unsafe { clCreateKernelsInProgram(program.0, 0, std::ptr::null_mut(), &mut n_kernels) };
@@ -636,7 +636,7 @@ pub(crate) fn create_kernels_in_program(program: &Program) -> Result<Vec<Rc<Kern
     Ok(kernels)
 }
 
-pub(crate) fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
+pub fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
     let value = unsafe { clReleaseKernel(kernel.0) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
