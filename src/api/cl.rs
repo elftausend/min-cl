@@ -349,7 +349,7 @@ pub unsafe fn release_mem_object(ptr: *mut c_void) -> Result<(), Error> {
     Ok(())
 }
 
-pub(crate) fn retain_mem_object(mem: *mut c_void) -> Result<(), Error> {
+pub fn retain_mem_object(mem: *mut c_void) -> Result<(), Error> {
     let value = unsafe { clRetainMemObject(mem) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -597,7 +597,7 @@ pub fn build_program(
 }
 
 #[derive(Debug)]
-pub /*(crate)*/ struct Kernel(pub cl_kernel);
+pub /**/ struct Kernel(pub cl_kernel);
 
 impl Drop for Kernel {
     fn drop(&mut self) {
@@ -608,7 +608,7 @@ impl Drop for Kernel {
 unsafe impl Send for Kernel {}
 unsafe impl Sync for Kernel {}
 
-pub(crate) fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Error> {
+pub fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Error> {
     let mut err = 0;
     let cstring = CString::new(str).unwrap();
     let kernel = unsafe { clCreateKernel(program.0, cstring.as_ptr(), &mut err) };
@@ -649,7 +649,7 @@ pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Rc<Kernel>>, E
     Ok(kernels)
 }
 
-pub(crate) fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
+pub fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
     let value = unsafe { clReleaseKernel(kernel.0) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
