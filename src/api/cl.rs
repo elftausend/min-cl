@@ -448,7 +448,7 @@ pub fn enqueue_full_copy_buffer<T>(
     enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size)
 }
 
-pub(crate) fn unified_ptr<T>(
+pub fn unified_ptr<T>(
     cq: &CommandQueue,
     ptr: *mut c_void,
     len: usize,
