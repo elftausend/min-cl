@@ -10,6 +10,8 @@ pub struct CLDevice {
     pub unified_mem: bool,
 }
 
+unsafe impl Sync for CLDevice {}
+
 impl CLDevice {
     pub fn new(device_idx: usize) -> Result<CLDevice, Error> {
         let platform = get_platforms()?[0];
