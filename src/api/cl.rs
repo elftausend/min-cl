@@ -274,13 +274,16 @@ impl Event {
 }
 
 pub fn wait_for_event(event: Event) -> Result<(), Error> {
-    let event_vec: Vec<Event> = vec![event];
+    let event_arr = [event];
 
-    let value = unsafe { clWaitForEvents(1, event_vec.as_ptr() as *mut cl_event) };
+    let value = unsafe { clWaitForEvents(1, event_arr.as_ptr() as *mut cl_event) };
+
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
+
     event.release();
+
     Ok(())
 }
 
@@ -365,7 +368,7 @@ pub unsafe fn enqueue_write_buffer<T>(
     data: &[T],
     block: bool,
 ) -> Result<Event, Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
 
     let value = clEnqueueWriteBuffer(
         cq.0,
@@ -392,7 +395,7 @@ pub unsafe fn enqueue_read_buffer<T>(
     data: &mut [T],
     block: bool,
 ) -> Result<Event, Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
     let value = clEnqueueReadBuffer(
         cq.0,
         mem,
@@ -418,7 +421,7 @@ pub fn enqueue_copy_buffer<T>(
     dst_offset: usize,
     size: usize,
 ) -> Result<(), Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
     let value = unsafe {
         clEnqueueCopyBuffer(
             cq.0,
@@ -438,6 +441,53 @@ pub fn enqueue_copy_buffer<T>(
     wait_for_event(Event(events[0]))
 }
 
+pub fn enqueue_copy_buffers<T, I>(
+    cq: &CommandQueue,
+    src_mem: *mut c_void,
+    dst_mem: *mut c_void,
+    to_copy: I,
+) -> Result<(), Error>
+where
+    I: IntoIterator<Item = (usize, usize, usize)>,
+{
+    let to_copy = to_copy.into_iter();
+    let mut events = match to_copy.size_hint() {
+        (0, None) => Vec::new(),
+        (min, None) => Vec::with_capacity(min),
+        (_, Some(max)) => Vec::with_capacity(max),
+    };
+
+    for (src_offset, dst_offset, size) in to_copy {
+        let event = [std::ptr::null_mut(); 1];
+        events.push(event);
+
+        let value = unsafe {
+            clEnqueueCopyBuffer(
+                cq.0,
+                src_mem,
+                dst_mem,
+                src_offset * size_of::<T>(),
+                dst_offset * size_of::<T>(),
+                size * size_of::<T>(),
+                0,
+                std::ptr::null(),
+                events.last_mut().unwrap().as_mut_ptr() as *mut cl_event,
+            )
+        };
+
+        if value != 0 {
+            return Err(Error::from(OCLErrorKind::from_value(value)));
+        }
+    }
+
+    // borrow to avoid moving while the event is still in progress
+    for event in &events {
+        wait_for_event(Event(event[0]))?;
+    }
+
+    Ok(())
+}
+
 #[inline]
 pub fn enqueue_full_copy_buffer<T>(
     cq: &CommandQueue,
@@ -448,11 +498,7 @@ pub fn enqueue_full_copy_buffer<T>(
     enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size)
 }
 
-pub fn unified_ptr<T>(
-    cq: &CommandQueue,
-    ptr: *mut c_void,
-    len: usize,
-) -> Result<*mut T, Error> {
+pub fn unified_ptr<T>(cq: &CommandQueue, ptr: *mut c_void, len: usize) -> Result<*mut T, Error> {
     unsafe { enqueue_map_buffer::<T>(cq, ptr, true, 2 | 1, 0, len).map(|ptr| ptr as *mut T) }
 }
 
@@ -470,7 +516,7 @@ pub unsafe fn enqueue_map_buffer<T>(
     let offset = offset * core::mem::size_of::<T>();
     let size = len * core::mem::size_of::<T>();
 
-    let mut event = vec![std::ptr::null_mut(); 1];
+    let mut event = [std::ptr::null_mut(); 1];
 
     let mut err = 0;
 
@@ -685,7 +731,7 @@ pub fn enqueue_nd_range_kernel(
     lws: Option<&[usize; 3]>,
     offset: Option<[usize; 3]>,
 ) -> Result<(), Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
     let lws = match lws {
         Some(lws) => lws.as_ptr(),
         None => std::ptr::null(),
