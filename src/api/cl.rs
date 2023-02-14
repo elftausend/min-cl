@@ -274,13 +274,16 @@ impl Event {
 }
 
 pub fn wait_for_event(event: Event) -> Result<(), Error> {
-    let event_vec: Vec<Event> = vec![event];
+    let event_arr = [event];
 
-    let value = unsafe { clWaitForEvents(1, event_vec.as_ptr() as *mut cl_event) };
+    let value = unsafe { clWaitForEvents(1, event_arr.as_ptr() as *mut cl_event) };
+
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
+
     event.release();
+
     Ok(())
 }
 
@@ -365,7 +368,7 @@ pub unsafe fn enqueue_write_buffer<T>(
     data: &[T],
     block: bool,
 ) -> Result<Event, Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
 
     let value = clEnqueueWriteBuffer(
         cq.0,
@@ -392,7 +395,7 @@ pub unsafe fn enqueue_read_buffer<T>(
     data: &mut [T],
     block: bool,
 ) -> Result<Event, Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
     let value = clEnqueueReadBuffer(
         cq.0,
         mem,
@@ -418,7 +421,7 @@ pub fn enqueue_copy_buffer<T>(
     dst_offset: usize,
     size: usize,
 ) -> Result<(), Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
     let value = unsafe {
         clEnqueueCopyBuffer(
             cq.0,
@@ -448,11 +451,7 @@ pub fn enqueue_full_copy_buffer<T>(
     enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size)
 }
 
-pub fn unified_ptr<T>(
-    cq: &CommandQueue,
-    ptr: *mut c_void,
-    len: usize,
-) -> Result<*mut T, Error> {
+pub fn unified_ptr<T>(cq: &CommandQueue, ptr: *mut c_void, len: usize) -> Result<*mut T, Error> {
     unsafe { enqueue_map_buffer::<T>(cq, ptr, true, 2 | 1, 0, len).map(|ptr| ptr as *mut T) }
 }
 
@@ -470,7 +469,7 @@ pub unsafe fn enqueue_map_buffer<T>(
     let offset = offset * core::mem::size_of::<T>();
     let size = len * core::mem::size_of::<T>();
 
-    let mut event = vec![std::ptr::null_mut(); 1];
+    let mut event = [std::ptr::null_mut(); 1];
 
     let mut err = 0;
 
@@ -685,7 +684,7 @@ pub fn enqueue_nd_range_kernel(
     lws: Option<&[usize; 3]>,
     offset: Option<[usize; 3]>,
 ) -> Result<(), Error> {
-    let mut events = vec![std::ptr::null_mut(); 1];
+    let mut events = [std::ptr::null_mut(); 1];
     let lws = match lws {
         Some(lws) => lws.as_ptr(),
         None => std::ptr::null(),
