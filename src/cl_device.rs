@@ -1,5 +1,10 @@
-use crate::{api::{CLIntDevice, Context, CommandQueue, DeviceType, get_device_ids, get_platforms, create_context, create_command_queue, OCLErrorKind}, Error};
-
+use crate::{
+    api::{
+        create_command_queue, create_context, get_device_ids, get_platforms, CLIntDevice,
+        CommandQueue, Context, DeviceType, OCLErrorKind,
+    },
+    Error,
+};
 
 /// Internal representation of an OpenCL Device.
 #[derive(Debug)]

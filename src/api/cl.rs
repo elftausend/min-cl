@@ -441,6 +441,53 @@ pub fn enqueue_copy_buffer<T>(
     wait_for_event(Event(events[0]))
 }
 
+pub fn enqueue_copy_buffers<T, I>(
+    cq: &CommandQueue,
+    src_mem: *mut c_void,
+    dst_mem: *mut c_void,
+    to_copy: I,
+) -> Result<(), Error>
+where
+    I: IntoIterator<Item = (usize, usize, usize)>,
+{
+    let to_copy = to_copy.into_iter();
+    let mut events = match to_copy.size_hint() {
+        (0, None) => Vec::new(),
+        (min, None) => Vec::with_capacity(min),
+        (_, Some(max)) => Vec::with_capacity(max),
+    };
+
+    for (src_offset, dst_offset, size) in to_copy {
+        let event = [std::ptr::null_mut(); 1];
+        events.push(event);
+
+        let value = unsafe {
+            clEnqueueCopyBuffer(
+                cq.0,
+                src_mem,
+                dst_mem,
+                src_offset * size_of::<T>(),
+                dst_offset * size_of::<T>(),
+                size * size_of::<T>(),
+                0,
+                std::ptr::null(),
+                events.last_mut().unwrap().as_mut_ptr() as *mut cl_event,
+            )
+        };
+
+        if value != 0 {
+            return Err(Error::from(OCLErrorKind::from_value(value)));
+        }
+    }
+
+    // borrow to avoid moving while the event is still in progress
+    for event in &events {
+        wait_for_event(Event(event[0]))?;
+    }
+
+    Ok(())
+}
+
 #[inline]
 pub fn enqueue_full_copy_buffer<T>(
     cq: &CommandQueue,
