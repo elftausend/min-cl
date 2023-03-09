@@ -3,7 +3,6 @@
 use std::{
     ffi::{c_void, CString},
     mem::size_of,
-    rc::Rc,
     usize, vec,
 };
 
@@ -663,7 +662,7 @@ pub fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Error> {
     }
     Ok(Kernel(kernel))
 }
-pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Rc<Kernel>>, Error> {
+pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Kernel>, Error> {
     let mut n_kernels: u32 = 0;
     let value =
         unsafe { clCreateKernelsInProgram(program.0, 0, std::ptr::null_mut(), &mut n_kernels) };
@@ -689,8 +688,6 @@ pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Rc<Kernel>>, E
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
-
-    let kernels = kernels.into_iter().map(Rc::new).collect();
 
     Ok(kernels)
 }
