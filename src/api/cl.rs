@@ -230,19 +230,18 @@ pub fn create_context(devices: &[CLIntDevice]) -> Result<Context, Error> {
 #[derive(Debug /* remove: */, Clone)]
 pub struct CommandQueue(pub cl_command_queue);
 
-impl CommandQueue {
-    pub fn release(&mut self) -> Result<(), Error> {
-        let err = unsafe { clReleaseCommandQueue(self.0) };
-        if err != 0 {
-            return Err(OCLErrorKind::from_value(err).into());
-        }
-        Ok(())
+pub fn release_command_queue(cq: &mut CommandQueue) -> Result<(), Error> {
+    let err = unsafe { clReleaseCommandQueue(cq.0) };
+    if err != 0 {
+        return Err(OCLErrorKind::from_value(err).into());
     }
+    Ok(())
 }
+
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        self.release().unwrap();
+        release_command_queue(self).unwrap();
     }
 }
 
@@ -260,14 +259,17 @@ pub fn finish(cq: CommandQueue) {
     unsafe { clFinish(cq.0) };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct Event(pub cl_event);
 
 impl Event {
     pub fn wait(self) -> Result<(), Error> {
         wait_for_event(self)
     }
-    pub fn release(self) {
+}
+
+impl Drop for Event {
+    fn drop(&mut self) {
         release_event(self).unwrap();
     }
 }
@@ -281,12 +283,20 @@ pub fn wait_for_event(event: Event) -> Result<(), Error> {
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
 
-    event.release();
+    Ok(())
+}
+
+pub fn wait_for_events(events: &[Event]) -> Result<(), Error> {
+    let value = unsafe { clWaitForEvents(events.len() as u32, events.as_ptr() as *mut cl_event) };
+
+    if value != 0 {
+        return Err(Error::from(OCLErrorKind::from_value(value)));
+    }
 
     Ok(())
 }
 
-pub fn release_event(event: Event) -> Result<(), Error> {
+pub fn release_event(event: &mut Event) -> Result<(), Error> {
     let value = unsafe { clReleaseEvent(event.0) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -554,12 +564,6 @@ pub fn enqueue_fill_buffer<T>(cq: &CommandQueue, mem: &Mem, pattern: Vec<T>) -> 
 
 pub struct Program(pub cl_program);
 
-impl Program {
-    pub fn release(&mut self) {
-        release_program(self).unwrap();
-    }
-}
-
 impl Drop for Program {
     fn drop(&mut self) {
         release_program(self).unwrap()
@@ -755,5 +759,7 @@ pub fn enqueue_nd_range_kernel(
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
     let e = Event(events[0]);
+    // e.release();
+    // Ok(())
     wait_for_event(e)
 }

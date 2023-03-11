@@ -28,8 +28,17 @@ pub type cl_command_queue_properties = cl_bitfield;
 pub type cl_context_properties = isize;
 pub type cl_mem_flags = cl_bitfield;
 pub type cl_program_info = cl_uint;
+pub type cl_kernel_work_group_info = cl_uint;
 pub type cl_program_build_info = cl_uint;
 pub type cl_map_flags = cl_bitfield;
+
+// cl_kernel_work_group_info:
+pub const CL_KERNEL_WORK_GROUP_SIZE:                    cl_uint = 0x11B0;
+pub const CL_KERNEL_COMPILE_WORK_GROUP_SIZE:            cl_uint = 0x11B1;
+pub const CL_KERNEL_LOCAL_MEM_SIZE:                     cl_uint = 0x11B2;
+pub const CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: cl_uint = 0x11B3;
+pub const CL_KERNEL_PRIVATE_MEM_SIZE:                   cl_uint = 0x11B4;
+pub const CL_KERNEL_GLOBAL_WORK_SIZE:                   cl_uint = 0x11B5;
 
 #[cfg_attr(target_os = "macos", link(name = "OpenCL", kind = "framework"))]
 #[cfg_attr(target_os = "windows", link(name = "OpenCL"))]
@@ -219,6 +228,15 @@ extern "system" {
         arg_index: cl_uint,
         arg_size: size_t,
         arg_value: *const c_void,
+    ) -> cl_int;
+
+    pub fn clGetKernelWorkGroupInfo(
+        kernel: cl_kernel,
+        device: cl_device_id,
+        param_name: cl_kernel_work_group_info,
+        param_value_size: size_t,
+        param_value: *mut c_void,
+        param_value_size_ret: *mut size_t,
     ) -> cl_int;
 
     pub fn clEnqueueNDRangeKernel(

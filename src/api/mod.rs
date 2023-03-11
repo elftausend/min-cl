@@ -4,4 +4,4 @@ pub use ffi::*;
 
 mod cl;
 mod error;
-mod ffi;
+pub mod ffi;
