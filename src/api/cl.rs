@@ -646,7 +646,7 @@ pub fn build_program(
 }
 
 #[derive(Debug)]
-pub /**/ struct Kernel(pub cl_kernel);
+pub struct Kernel(pub cl_kernel);
 
 impl Drop for Kernel {
     fn drop(&mut self) {
