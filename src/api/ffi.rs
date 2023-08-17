@@ -33,12 +33,12 @@ pub type cl_program_build_info = cl_uint;
 pub type cl_map_flags = cl_bitfield;
 
 // cl_kernel_work_group_info:
-pub const CL_KERNEL_WORK_GROUP_SIZE:                    cl_uint = 0x11B0;
-pub const CL_KERNEL_COMPILE_WORK_GROUP_SIZE:            cl_uint = 0x11B1;
-pub const CL_KERNEL_LOCAL_MEM_SIZE:                     cl_uint = 0x11B2;
+pub const CL_KERNEL_WORK_GROUP_SIZE: cl_uint = 0x11B0;
+pub const CL_KERNEL_COMPILE_WORK_GROUP_SIZE: cl_uint = 0x11B1;
+pub const CL_KERNEL_LOCAL_MEM_SIZE: cl_uint = 0x11B2;
 pub const CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: cl_uint = 0x11B3;
-pub const CL_KERNEL_PRIVATE_MEM_SIZE:                   cl_uint = 0x11B4;
-pub const CL_KERNEL_GLOBAL_WORK_SIZE:                   cl_uint = 0x11B5;
+pub const CL_KERNEL_PRIVATE_MEM_SIZE: cl_uint = 0x11B4;
+pub const CL_KERNEL_GLOBAL_WORK_SIZE: cl_uint = 0x11B5;
 
 #[cfg_attr(target_os = "macos", link(name = "OpenCL", kind = "framework"))]
 #[cfg_attr(target_os = "windows", link(name = "OpenCL"))]

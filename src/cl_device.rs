@@ -1,15 +1,35 @@
-use std::{cell::RefCell};
+use std::{cell::RefCell, fmt::Debug};
 
 use crate::{
     api::{
-        create_command_queue, create_context, get_device_ids, get_platforms, CLIntDevice,
-        CommandQueue, Context, DeviceType, Event, Kernel, OCLErrorKind, clEnqueueNDRangeKernel, cl_event, wait_for_events,
+        clEnqueueNDRangeKernel, cl_event, create_command_queue, create_context, get_device_ids,
+        get_platforms, wait_for_events, CLIntDevice, CommandQueue, Context, DeviceType, Event,
+        Kernel, OCLErrorKind, Platform,
     },
+    measure_perf::measure_perf,
     Error,
 };
 
+pub fn all_devices() -> Result<Vec<CLIntDevice>, Error> {
+    Ok(get_platforms()?
+        .into_iter()
+        .map(all_devices_of_platform)
+        .flatten()
+        .collect())
+}
+
+pub fn all_devices_of_platform(platform: Platform) -> Vec<CLIntDevice> {
+    [
+        DeviceType::GPU as u64 | DeviceType::ACCELERATOR as u64,
+        DeviceType::CPU as u64,
+    ]
+    .into_iter()
+    .flat_map(|device_type| get_device_ids(platform, &device_type))
+    .flatten()
+    .collect()
+}
+
 /// Internal representation of an OpenCL Device.
-#[derive(Debug)]
 pub struct CLDevice {
     pub device: CLIntDevice,
     pub ctx: Context,
@@ -18,18 +38,18 @@ pub struct CLDevice {
     pub event_wait_list: RefCell<Vec<Event>>,
 }
 
+impl Debug for CLDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CLDevice").field("name", &self.device.get_name().unwrap()).field("unified_mem", &self.unified_mem).field("event_wait_list", &self.event_wait_list.borrow()).finish()
+    }
+}
+
 unsafe impl Sync for CLDevice {}
 
-impl CLDevice {
-    pub fn new(device_idx: usize) -> Result<CLDevice, Error> {
-        let platform = get_platforms()?[0];
-        let devices = get_device_ids(platform, &(DeviceType::GPU as u64))?;
+impl TryFrom<CLIntDevice> for CLDevice {
+    type Error = Error;
 
-        if device_idx >= devices.len() {
-            return Err(OCLErrorKind::InvalidDeviceIdx.into());
-        }
-        let device = devices[0];
-
+    fn try_from(device: CLIntDevice) -> Result<Self, Self::Error> {
         let ctx = create_context(&[device])?;
         let queue = create_command_queue(&ctx, device)?;
         let unified_mem = device.unified_mem()?;
@@ -41,6 +61,34 @@ impl CLDevice {
             unified_mem,
             event_wait_list: Default::default(),
         })
+    }
+}
+
+impl CLDevice {
+    pub fn new(device_idx: usize) -> Result<CLDevice, Error> {
+        let platform = get_platforms()?[0];
+        let devices = get_device_ids(platform, &(DeviceType::GPU as u64))?;
+
+        if device_idx >= devices.len() {
+            return Err(OCLErrorKind::InvalidDeviceIdx.into());
+        }
+        let device = devices[device_idx];
+        device.try_into()
+    }
+
+    // return get_best -> must do it via algo test..
+    pub fn fastest() -> Result<CLDevice, Error> {
+        let mut all_devices = all_devices()?
+            .into_iter()
+            .map(TryInto::try_into)
+            .flatten()
+            .filter_map(|device| Some((measure_perf(&device).unwrap(), device)))
+            .collect::<Vec<_>>();
+
+        dbg!(&all_devices);
+
+        all_devices.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(all_devices.remove(0).1)
     }
 
     pub fn enqueue_nd_range_kernel(
@@ -60,7 +108,7 @@ impl CLDevice {
             Some(offset) => offset.as_ptr(),
             None => std::ptr::null(),
         };
-    
+
         let value = unsafe {
             clEnqueueNDRangeKernel(
                 self.queue.0,
@@ -78,7 +126,7 @@ impl CLDevice {
         if value != 0 {
             return Err(Error::from(OCLErrorKind::from_value(value)));
         }
-        
+
         self.event_wait_list.borrow_mut().push(Event(event[0]));
 
         Ok(())
@@ -89,5 +137,26 @@ impl CLDevice {
         wait_for_events(&self.event_wait_list.borrow())?;
         self.event_wait_list.borrow_mut().clear();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        api::{create_buffer, MemFlags},
+        CLDevice,
+    };
+
+    #[test]
+    fn test_get_device_with_most_vram() {
+        let device = CLDevice::fastest().unwrap();
+        create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 10000, None).unwrap();
+        println!("device name: {}", device.device.get_name().unwrap());
+        create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 9423 * 123, None).unwrap();
+
+        println!(
+            "{}",
+            device.device.get_global_mem().unwrap() as f32 * 10f32.powf(-9.)
+        )
     }
 }

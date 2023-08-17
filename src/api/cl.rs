@@ -238,7 +238,6 @@ pub fn release_command_queue(cq: &mut CommandQueue) -> Result<(), Error> {
     Ok(())
 }
 
-
 impl Drop for CommandQueue {
     fn drop(&mut self) {
         release_command_queue(self).unwrap();
