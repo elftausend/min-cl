@@ -8,7 +8,7 @@ use crate::{
     CLDevice, Error,
 };
 
-const SIZE: usize = 10000;
+const SIZE: usize = 100_000;
 
 pub fn measure_perf(device: &CLDevice) -> Result<std::time::Duration, Error> {
     let src = "
@@ -31,13 +31,13 @@ pub fn measure_perf(device: &CLDevice) -> Result<std::time::Duration, Error> {
         &device.ctx,
         MemFlags::MemReadWrite | MemFlags::MemCopyHostPtr,
         SIZE,
-        Some(&[1i32; SIZE]),
+        Some(&vec![1i32; SIZE]),
     )?;
     let rhs = create_buffer::<i32>(
         &device.ctx,
         MemFlags::MemReadWrite | MemFlags::MemCopyHostPtr,
         SIZE,
-        Some(&[2i32; SIZE]),
+        Some(&vec![2i32; SIZE]),
     )?;
     let out = create_buffer::<i32>(&device.ctx, MemFlags::MemReadWrite as u64, SIZE, None)?;
 
@@ -46,12 +46,17 @@ pub fn measure_perf(device: &CLDevice) -> Result<std::time::Duration, Error> {
     set_kernel_arg(&kernel, 2, out, size_of::<*const c_void>(), false)?;
 
     let start = Instant::now();
-    // waits till completion
-    enqueue_nd_range_kernel(&device.queue, &kernel, 1, &[SIZE, 0, 0], None, None)?;
+    
+    for _ in 0..10 {
+        // waits till completion
+        enqueue_nd_range_kernel(&device.queue, &kernel, 1, &[SIZE, 0, 0], None, None)?;
+    }
+
+    let dur = start.elapsed();
 
     unsafe { release_mem_object(lhs)? };
     unsafe { release_mem_object(rhs)? };
     unsafe { release_mem_object(out)? };
 
-    Ok(start.elapsed())
+    Ok(dur)
 }
