@@ -69,8 +69,8 @@ impl TryFrom<CLIntDevice> for CLDevice {
     }
 }
 
-pub fn sorted_best_devices() -> Result<Vec<(Duration, usize, usize, CLDevice)>, Error> {
-    let mut all_devices = all_devices()?
+pub fn measured_devices() -> Result<Vec<(Duration, usize, usize, CLDevice)>, Error> {
+    Ok(all_devices()?
         .into_iter()
         .enumerate()
         .map(|(platform_idx, devices)| {
@@ -88,10 +88,7 @@ pub fn sorted_best_devices() -> Result<Vec<(Duration, usize, usize, CLDevice)>, 
                 })
         })
         .flatten()
-        .collect::<Vec<_>>();
-
-    all_devices.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(all_devices)
+        .collect::<Vec<_>>())  
 }
 
 pub fn extract_indices_from_device_idx(device_idx: usize) -> Result<(usize, usize), Error> {
@@ -119,7 +116,11 @@ impl CLDevice {
     }
 
     pub fn fastest() -> Result<CLDevice, Error> {
-        CLDevice::new(0)
+        Ok(measured_devices()?
+            .into_iter()
+            .min_by_key(|(dur, _, _, _)| *dur)
+            .ok_or(OCLErrorKind::InvalidDevice)
+            .map(|(_, _, _, device)| device)?)  
     }
 
     pub fn enqueue_nd_range_kernel(

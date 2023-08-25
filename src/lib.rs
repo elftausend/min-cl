@@ -5,7 +5,7 @@ pub use cl_device::*;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-use crate::sorted_best_devices;
+use crate::measured_devices;
 use std::{sync::RwLock, time::Duration};
 
 pub static DEVICES: RwLock<Option<Vec<(Duration, usize, usize, CLDevice)>>> = RwLock::new(None);
@@ -13,7 +13,7 @@ pub static DEVICES: RwLock<Option<Vec<(Duration, usize, usize, CLDevice)>>> = Rw
 pub fn init_devices() {
     if DEVICES.read().unwrap().is_none() {
         *DEVICES.write().unwrap() =
-            Some(sorted_best_devices().expect("Could not gather OpenCL devices"));
+            Some(measured_devices().expect("Could not gather OpenCL devices"));
     }
 }
 
