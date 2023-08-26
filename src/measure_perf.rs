@@ -46,7 +46,7 @@ pub fn measure_perf(device: &CLDevice) -> Result<std::time::Duration, Error> {
     set_kernel_arg(&kernel, 2, out, size_of::<*const c_void>(), false)?;
 
     let start = Instant::now();
-    
+
     for _ in 0..10 {
         // waits till completion
         enqueue_nd_range_kernel(&device.queue, &kernel, 1, &[SIZE, 0, 0], None, None)?;

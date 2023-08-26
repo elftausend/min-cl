@@ -88,7 +88,7 @@ pub fn measured_devices() -> Result<Vec<(Duration, usize, usize, CLDevice)>, Err
                 })
         })
         .flatten()
-        .collect::<Vec<_>>())  
+        .collect::<Vec<_>>())
 }
 
 pub fn extract_indices_from_device_idx(device_idx: usize) -> Result<(usize, usize), Error> {
@@ -120,7 +120,7 @@ impl CLDevice {
             .into_iter()
             .min_by_key(|(dur, _, _, _)| *dur)
             .ok_or(OCLErrorKind::InvalidDevice)
-            .map(|(_, _, _, device)| device)?)  
+            .map(|(_, _, _, device)| device)?)
     }
 
     pub fn enqueue_nd_range_kernel(
