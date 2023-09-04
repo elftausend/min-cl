@@ -5,7 +5,6 @@ pub use cl_device::*;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-use crate::measured_devices;
 use std::{sync::RwLock, time::Duration};
 
 pub static DEVICES: RwLock<Option<Vec<(Duration, usize, usize, CLDevice)>>> = RwLock::new(None);
