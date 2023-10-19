@@ -8,7 +8,7 @@ use crate::{
     },
     init_devices,
     measure_perf::measure_perf,
-    Error, DEVICES,
+    Error, DEVICES, kernel_cache::KernelCache,
 };
 
 pub fn all_devices() -> Result<Vec<Vec<CLIntDevice>>, Error> {
@@ -36,6 +36,7 @@ pub struct CLDevice {
     pub queue: CommandQueue,
     pub unified_mem: bool,
     pub event_wait_list: RefCell<Vec<Event>>,
+    pub kernel_cache: RefCell<KernelCache>
 }
 
 impl Debug for CLDevice {
@@ -65,6 +66,7 @@ impl TryFrom<CLIntDevice> for CLDevice {
             queue,
             unified_mem,
             event_wait_list: Default::default(),
+            kernel_cache: Default::default()
         })
     }
 }
