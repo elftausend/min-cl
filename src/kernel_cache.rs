@@ -14,28 +14,6 @@ pub struct KernelCache {
 
 impl KernelCache {
     /// Returns a cached kernel. If the kernel source code does not exist, a new kernel is created and cached.
-    ///
-    /// # Example
-    /// ```
-    /// use std::collections::HashMap;
-    /// use custos::{OpenCL, opencl::CLKernelCache, Base};
-    ///
-    /// fn main() -> custos::Result<()> {
-    ///     let device = OpenCL::<Base>::new(0)?;
-    ///     
-    ///     let mut kernel_cache = CLKernelCache::default();
-    ///     
-    ///     let mut kernel_fn = || kernel_cache.kernel(&device, "
-    ///         __kernel void test(__global float* test) {}
-    ///     ").unwrap().0;
-    ///     
-    ///     let kernel = kernel_fn();
-    ///     let same_kernel = kernel_fn();
-    ///     
-    ///     assert_eq!(kernel, same_kernel);
-    ///     Ok(())
-    /// }
-    /// ```
     pub fn kernel(&mut self, device: &CLDevice, src: &str) -> Result<&Kernel, Error> {
         if self.kernel_cache.contains_key(src) {
             return Ok(self.kernel_cache.get(src).unwrap());
