@@ -172,6 +172,51 @@ impl CLDevice {
         self.event_wait_list.borrow_mut().clear();
         Ok(())
     }
+
+
+    /// Context of the OpenCL device.
+    #[inline]
+    pub fn ctx(&self) -> &Context {
+        &self.ctx
+    }
+
+    /// Command queue of the OpenCL device.
+    #[inline]
+    pub fn queue(&self) -> &CommandQueue {
+        &self.queue
+    }
+
+    /// CLIntDevice of the OpenCL device.
+    #[inline]
+    pub fn device(&self) -> CLIntDevice {
+        self.device
+    }
+
+    /// Returns the global memory size in GB.
+    pub fn global_mem_size_in_gb(&self) -> Result<f64, Error> {
+        Ok(self.device().get_global_mem()? as f64 * 10f64.powi(-9))
+    }
+
+    /// Returns the maximum memory allocation size in GB.
+    pub fn max_mem_alloc_in_gb(&self) -> Result<f64, Error> {
+        Ok(self.device().get_max_mem_alloc()? as f64 * 10f64.powi(-9))
+    }
+
+    /// Returns the name of the OpenCL device.
+    pub fn name(&self) -> Result<String, Error> {
+        self.device().get_name()
+    }
+
+    /// Returns the OpenCL version of the device.
+    pub fn version(&self) -> Result<String, Error> {
+        self.device().get_version()
+    }
+
+    /// Checks whether the device supports unified memory.
+    #[inline]
+    pub fn unified_mem(&self) -> bool {
+        self.unified_mem
+    }
 }
 
 #[cfg(test)]
