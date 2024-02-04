@@ -574,7 +574,8 @@ enum ProgramInfo {
     Binaries = 0x1166,
 }
 
-enum ProgramBuildInfo {
+#[derive(Clone, Copy)]
+pub enum ProgramBuildInfo {
     Status = 0x1181,
     BuildLog = 0x1183,
 }
@@ -638,10 +639,57 @@ pub fn build_program(
             )
         }
     };
+
     if err != 0 {
         return Err(Error::from(OCLErrorKind::from_value(err)));
     }
     Ok(())
+}
+
+pub fn get_program_build_info(
+    program_build_info: ProgramBuildInfo,
+    program: &Program,
+    devices: &[CLIntDevice],
+) -> Result<Vec<String>, Error> {
+    let mut results = Vec::with_capacity(devices.len());
+
+    for device in devices {
+        let mut log_size: size_t = 0;
+        let err = unsafe {
+            clGetProgramBuildInfo(
+                program.0,
+                device.0,
+                program_build_info as u32,
+                0,
+                std::ptr::null_mut(),
+                &mut log_size as *mut size_t,
+            )
+        };
+
+        if err != 0 {
+            return Err(Error::from(OCLErrorKind::from_value(err)));
+        }
+
+        let mut log: Vec<u8> = vec![0; log_size];
+        let err = unsafe {
+            clGetProgramBuildInfo(
+                program.0,
+                devices[0].0,
+                program_build_info as u32,
+                log_size,
+                log.as_mut_ptr() as *mut c_void,
+                std::ptr::null_mut(),
+            )
+        };
+
+        if err != 0 {
+            return Err(Error::from(OCLErrorKind::from_value(err)));
+        }
+
+        let log_cstr = unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(&log) };
+        results.push(log_cstr.to_string_lossy().into_owned());
+    }
+    Ok(results)
 }
 
 #[derive(Debug)]
