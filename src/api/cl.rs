@@ -263,17 +263,17 @@ pub struct Event(pub cl_event);
 
 impl Event {
     pub fn wait(self) -> Result<(), Error> {
-        wait_for_event(self)
+        unsafe { wait_for_event(self) }
     }
 }
 
 impl Drop for Event {
     fn drop(&mut self) {
-        release_event(self).unwrap();
+        unsafe { release_event(self).unwrap() }; 
     }
 }
 
-pub fn wait_for_event(event: Event) -> Result<(), Error> {
+pub unsafe fn wait_for_event(event: Event) -> Result<(), Error> {
     let event_arr = [event];
 
     let value = unsafe { clWaitForEvents(1, event_arr.as_ptr() as *mut cl_event) };
@@ -285,7 +285,7 @@ pub fn wait_for_event(event: Event) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn wait_for_events(events: &[Event]) -> Result<(), Error> {
+pub unsafe fn wait_for_events(events: &[Event]) -> Result<(), Error> {
     let value = unsafe { clWaitForEvents(events.len() as u32, events.as_ptr() as *mut cl_event) };
 
     if value != 0 {
@@ -295,7 +295,7 @@ pub fn wait_for_events(events: &[Event]) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn release_event(event: &mut Event) -> Result<(), Error> {
+pub unsafe fn release_event(event: &mut Event) -> Result<(), Error> {
     let value = unsafe { clReleaseEvent(event.0) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -323,7 +323,7 @@ impl core::ops::BitOr for MemFlags {
     }
 }
 
-pub fn create_buffer<T>(
+pub unsafe fn create_buffer<T>(
     context: &Context,
     flag: u64,
     size: usize,
@@ -360,7 +360,7 @@ pub unsafe fn release_mem_object(ptr: *mut c_void) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn retain_mem_object(mem: *mut c_void) -> Result<(), Error> {
+pub unsafe fn retain_mem_object(mem: *mut c_void) -> Result<(), Error> {
     let value = unsafe { clRetainMemObject(mem) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -421,7 +421,7 @@ pub unsafe fn enqueue_read_buffer<T>(
     Ok(Event(events[0]))
 }
 
-pub fn enqueue_copy_buffer<T>(
+pub unsafe fn enqueue_copy_buffer<T>(
     cq: &CommandQueue,
     src_mem: *mut c_void,
     dst_mem: *mut c_void,
@@ -449,7 +449,7 @@ pub fn enqueue_copy_buffer<T>(
     wait_for_event(Event(events[0]))
 }
 
-pub fn enqueue_copy_buffers<T, I>(
+pub unsafe fn enqueue_copy_buffers<T, I>(
     cq: &CommandQueue,
     src_mem: *mut c_void,
     dst_mem: *mut c_void,
@@ -497,7 +497,7 @@ where
 }
 
 #[inline]
-pub fn enqueue_full_copy_buffer<T>(
+pub unsafe fn enqueue_full_copy_buffer<T>(
     cq: &CommandQueue,
     src_mem: *mut c_void,
     dst_mem: *mut c_void,
@@ -506,7 +506,7 @@ pub fn enqueue_full_copy_buffer<T>(
     enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size)
 }
 
-pub fn unified_ptr<T>(cq: &CommandQueue, ptr: *mut c_void, len: usize) -> Result<*mut T, Error> {
+pub unsafe fn unified_ptr<T>(cq: &CommandQueue, ptr: *mut c_void, len: usize) -> Result<*mut T, Error> {
     unsafe { enqueue_map_buffer::<T>(cq, ptr, true, 2 | 1, 0, len).map(|ptr| ptr as *mut T) }
 }
 
@@ -565,7 +565,9 @@ pub struct Program(pub cl_program);
 
 impl Drop for Program {
     fn drop(&mut self) {
-        release_program(self).unwrap()
+        unsafe {
+            release_program(self).unwrap()
+        }
     }
 }
 
@@ -580,7 +582,7 @@ pub enum ProgramBuildInfo {
     BuildLog = 0x1183,
 }
 
-pub fn release_program(program: &mut Program) -> Result<(), Error> {
+pub unsafe fn release_program(program: &mut Program) -> Result<(), Error> {
     let value = unsafe { clReleaseProgram(program.0) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -588,7 +590,7 @@ pub fn release_program(program: &mut Program) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn create_program_with_source(context: &Context, src: &str) -> Result<Program, Error> {
+pub unsafe fn create_program_with_source(context: &Context, src: &str) -> Result<Program, Error> {
     let mut err = 0;
     let cs = CString::new(src).expect("No cstring for you!");
     let lens = vec![cs.as_bytes().len()];
@@ -608,7 +610,7 @@ pub fn create_program_with_source(context: &Context, src: &str) -> Result<Progra
     Ok(Program(r))
 }
 
-pub fn build_program(
+pub unsafe fn build_program(
     program: &Program,
     devices: &[CLIntDevice],
     options: Option<&str>,
@@ -697,7 +699,7 @@ pub struct Kernel(pub cl_kernel);
 
 impl Drop for Kernel {
     fn drop(&mut self) {
-        release_kernel(self).unwrap()
+        unsafe { release_kernel(self).unwrap() }
     }
 }
 
@@ -713,7 +715,7 @@ pub fn create_kernel(program: &Program, str: &str) -> Result<Kernel, Error> {
     }
     Ok(Kernel(kernel))
 }
-pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Kernel>, Error> {
+pub unsafe fn create_kernels_in_program(program: &Program) -> Result<Vec<Kernel>, Error> {
     let mut n_kernels: u32 = 0;
     let value =
         unsafe { clCreateKernelsInProgram(program.0, 0, std::ptr::null_mut(), &mut n_kernels) };
@@ -743,7 +745,7 @@ pub fn create_kernels_in_program(program: &Program) -> Result<Vec<Kernel>, Error
     Ok(kernels)
 }
 
-pub fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
+pub unsafe fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
     let value = unsafe { clReleaseKernel(kernel.0) };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
@@ -751,7 +753,7 @@ pub fn release_kernel(kernel: &mut Kernel) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn set_kernel_arg(
+pub unsafe fn set_kernel_arg(
     kernel: &Kernel,
     index: usize,
     arg: *const c_void,
@@ -771,7 +773,7 @@ pub fn set_kernel_arg(
     Ok(())
 }
 
-pub fn enqueue_nd_range_kernel(
+pub unsafe fn enqueue_nd_range_kernel(
     cq: &CommandQueue,
     kernel: &Kernel,
     wd: usize,

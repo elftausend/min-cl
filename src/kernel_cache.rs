@@ -22,13 +22,13 @@ impl KernelCache {
             return Ok(kernel);
         }*/
 
-        let program = create_program_with_source(&device.ctx, src)?;
-        build_program(&program, &[device.device], Some("-cl-std=CL1.2"))?; //-cl-single-precision-constant
+        let program = unsafe { create_program_with_source(&device.ctx, src)? };
+        unsafe { build_program(&program, &[device.device], Some("-cl-std=CL1.2"))?; }//-cl-single-precision-constant
 
-        let kernel = create_kernels_in_program(&program)?
+        let kernel = unsafe { create_kernels_in_program(&program)?
             .into_iter()
             .next()
-            .ok_or(OCLErrorKind::InvalidKernel)?;
+            .ok_or(OCLErrorKind::InvalidKernel)? };
 
         self.kernel_cache.insert(src.to_string(), kernel);
         Ok(self.kernel_cache.get(src).unwrap())

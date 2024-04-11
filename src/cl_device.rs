@@ -168,7 +168,7 @@ impl CLDevice {
 
     #[inline]
     pub fn wait_for_events(&self) -> Result<(), Error> {
-        wait_for_events(&self.event_wait_list.borrow())?;
+        unsafe { wait_for_events(&self.event_wait_list.borrow())?; }
         self.event_wait_list.borrow_mut().clear();
         Ok(())
     }
@@ -229,9 +229,9 @@ mod tests {
     #[test]
     fn test_get_fastest() {
         let device = CLDevice::fastest().unwrap();
-        create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 10000, None).unwrap();
+        unsafe { create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 10000, None).unwrap() };
         println!("device name: {}", device.device.get_name().unwrap());
-        create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 9423 * 123, None).unwrap();
+        unsafe { create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 9423 * 123, None).unwrap() };
 
         println!(
             "{}",
