@@ -379,8 +379,11 @@ pub unsafe fn enqueue_write_buffer<T>(
     mem: *mut c_void,
     data: &[T],
     block: bool,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<Event, Error> {
     let mut events = [std::ptr::null_mut(); 1];
+
+    let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
 
     let value = clEnqueueWriteBuffer(
         cq.0,
@@ -389,8 +392,8 @@ pub unsafe fn enqueue_write_buffer<T>(
         0,
         data.len() * core::mem::size_of::<T>(),
         data.as_ptr() as *mut c_void,
-        0,
-        std::ptr::null(),
+        num_events_in_wait_list,
+        event_wait_list,
         events.as_mut_ptr() as *mut cl_event,
     );
     if value != 0 {
@@ -406,8 +409,12 @@ pub unsafe fn enqueue_read_buffer<T>(
     mem: *mut c_void,
     data: &mut [T],
     block: bool,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<Event, Error> {
     let mut events = [std::ptr::null_mut(); 1];
+
+    let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
+
     let value = clEnqueueReadBuffer(
         cq.0,
         mem,
@@ -415,8 +422,8 @@ pub unsafe fn enqueue_read_buffer<T>(
         0,
         data.len() * core::mem::size_of::<T>(),
         data.as_ptr() as *mut c_void,
-        0,
-        std::ptr::null(),
+        num_events_in_wait_list,
+        event_wait_list,
         events.as_mut_ptr() as *mut cl_event,
     );
     if value != 0 {
@@ -432,8 +439,12 @@ pub unsafe fn enqueue_copy_buffer<T>(
     src_offset: usize,
     dst_offset: usize,
     size: usize,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<(), Error> {
     let mut events = [std::ptr::null_mut(); 1];
+
+    let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
+
     let value = unsafe {
         clEnqueueCopyBuffer(
             cq.0,
@@ -442,8 +453,8 @@ pub unsafe fn enqueue_copy_buffer<T>(
             src_offset * size_of::<T>(),
             dst_offset * size_of::<T>(),
             size * size_of::<T>(),
-            0,
-            std::ptr::null(),
+            num_events_in_wait_list,
+            event_wait_list,
             events.as_mut_ptr() as *mut cl_event,
         )
     };
@@ -458,10 +469,13 @@ pub unsafe fn enqueue_copy_buffers<T, I>(
     src_mem: *mut c_void,
     dst_mem: *mut c_void,
     to_copy: I,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<(), Error>
 where
     I: IntoIterator<Item = (usize, usize, usize)>,
 {
+    let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
+
     let to_copy = to_copy.into_iter();
     let mut events = match to_copy.size_hint() {
         (0, None) => Vec::new(),
@@ -481,8 +495,8 @@ where
                 src_offset * size_of::<T>(),
                 dst_offset * size_of::<T>(),
                 size * size_of::<T>(),
-                0,
-                std::ptr::null(),
+                num_events_in_wait_list,
+                event_wait_list,
                 events.last_mut().unwrap().as_mut_ptr() as *mut cl_event,
             )
         };
@@ -506,16 +520,21 @@ pub unsafe fn enqueue_full_copy_buffer<T>(
     src_mem: *mut c_void,
     dst_mem: *mut c_void,
     size: usize,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<(), Error> {
-    enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size)
+    enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size, event_wait_list)
 }
 
 pub unsafe fn unified_ptr<T>(
     cq: &CommandQueue,
     ptr: *mut c_void,
     len: usize,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<*mut T, Error> {
-    unsafe { enqueue_map_buffer::<T>(cq, ptr, true, 2 | 1, 0, len).map(|ptr| ptr as *mut T) }
+    unsafe {
+        enqueue_map_buffer::<T>(cq, ptr, true, 2 | 1, 0, len, event_wait_list)
+            .map(|ptr| ptr as *mut T)
+    }
 }
 
 /// map_flags: Read: 1, Write: 2,
@@ -528,11 +547,14 @@ pub unsafe fn enqueue_map_buffer<T>(
     map_flags: u64,
     offset: usize,
     len: usize,
+    event_wait_list: Option<&[Event]>,
 ) -> Result<*mut c_void, Error> {
     let offset = offset * core::mem::size_of::<T>();
     let size = len * core::mem::size_of::<T>();
 
     let mut event = [std::ptr::null_mut(); 1];
+
+    let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
 
     let mut err = 0;
 
@@ -543,8 +565,8 @@ pub unsafe fn enqueue_map_buffer<T>(
         map_flags,
         offset,
         size,
-        0,
-        std::ptr::null(),
+        num_events_in_wait_list,
+        event_wait_list,
         event.as_mut_ptr() as *mut cl_event,
         &mut err,
     );
@@ -779,6 +801,21 @@ pub unsafe fn set_kernel_arg(
     Ok(())
 }
 
+#[inline]
+fn extract_event_wait_list(event_wait_list: Option<&[Event]>) -> (u32, *const cl_event) {
+    match event_wait_list {
+        Some(event_wait_list) => (
+            event_wait_list.len() as u32,
+            if event_wait_list.len() == 0 {
+                std::ptr::null()
+            } else {
+                event_wait_list.as_ptr() as *const cl_event
+            },
+        ),
+        None => (0, std::ptr::null()),
+    }
+}
+
 pub unsafe fn enqueue_nd_range_kernel(
     cq: &CommandQueue,
     kernel: &Kernel,
@@ -798,17 +835,7 @@ pub unsafe fn enqueue_nd_range_kernel(
         None => std::ptr::null(),
     };
 
-    let (num_events_in_wait_list, event_wait_list) = match event_wait_list {
-        Some(event_wait_list) => (
-            event_wait_list.len() as u32,
-            if event_wait_list.len() == 0 {
-                std::ptr::null()
-            } else {
-                event_wait_list.as_ptr() as *const cl_event
-            },
-        ),
-        None => (0, std::ptr::null()),
-    };
+    let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
 
     let value = unsafe {
         clEnqueueNDRangeKernel(
