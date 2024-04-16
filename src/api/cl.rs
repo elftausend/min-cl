@@ -259,6 +259,7 @@ pub fn finish(cq: CommandQueue) {
 }
 
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct Event(pub cl_event);
 
 impl Event {
@@ -269,7 +270,7 @@ impl Event {
 
 impl Drop for Event {
     fn drop(&mut self) {
-        unsafe { release_event(self).unwrap() }; 
+        unsafe { release_event(self).unwrap() };
     }
 }
 
@@ -286,6 +287,9 @@ pub unsafe fn wait_for_event(event: Event) -> Result<(), Error> {
 }
 
 pub unsafe fn wait_for_events(events: &[Event]) -> Result<(), Error> {
+    if events.len() == 0 {
+        return Ok(());
+    }
     let value = unsafe { clWaitForEvents(events.len() as u32, events.as_ptr() as *mut cl_event) };
 
     if value != 0 {
@@ -506,7 +510,11 @@ pub unsafe fn enqueue_full_copy_buffer<T>(
     enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size)
 }
 
-pub unsafe fn unified_ptr<T>(cq: &CommandQueue, ptr: *mut c_void, len: usize) -> Result<*mut T, Error> {
+pub unsafe fn unified_ptr<T>(
+    cq: &CommandQueue,
+    ptr: *mut c_void,
+    len: usize,
+) -> Result<*mut T, Error> {
     unsafe { enqueue_map_buffer::<T>(cq, ptr, true, 2 | 1, 0, len).map(|ptr| ptr as *mut T) }
 }
 
@@ -565,9 +573,7 @@ pub struct Program(pub cl_program);
 
 impl Drop for Program {
     fn drop(&mut self) {
-        unsafe {
-            release_program(self).unwrap()
-        }
+        unsafe { release_program(self).unwrap() }
     }
 }
 
@@ -780,7 +786,8 @@ pub unsafe fn enqueue_nd_range_kernel(
     gws: &[usize; 3],
     lws: Option<&[usize; 3]>,
     offset: Option<[usize; 3]>,
-) -> Result<(), Error> {
+    event_wait_list: Option<&[Event]>,
+) -> Result<Event, Error> {
     let mut events = [std::ptr::null_mut(); 1];
     let lws = match lws {
         Some(lws) => lws.as_ptr(),
@@ -791,6 +798,18 @@ pub unsafe fn enqueue_nd_range_kernel(
         None => std::ptr::null(),
     };
 
+    let (num_events_in_wait_list, event_wait_list) = match event_wait_list {
+        Some(event_wait_list) => (
+            event_wait_list.len() as u32,
+            if event_wait_list.len() == 0 {
+                std::ptr::null()
+            } else {
+                event_wait_list.as_ptr() as *const cl_event
+            },
+        ),
+        None => (0, std::ptr::null()),
+    };
+
     let value = unsafe {
         clEnqueueNDRangeKernel(
             cq.0,
@@ -799,16 +818,13 @@ pub unsafe fn enqueue_nd_range_kernel(
             offset,
             gws.as_ptr(),
             lws,
-            0,
-            std::ptr::null(),
+            num_events_in_wait_list,
+            event_wait_list,
             events.as_mut_ptr() as *mut cl_event,
         )
     };
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
-    let e = Event(events[0]);
-    // e.release();
-    // Ok(())
-    wait_for_event(e)
+    Ok(Event(events[0]))
 }

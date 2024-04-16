@@ -2,13 +2,14 @@ use std::{cell::RefCell, fmt::Debug, time::Duration};
 
 use crate::{
     api::{
-        clEnqueueNDRangeKernel, cl_event, create_command_queue, create_context, get_device_ids,
+        create_command_queue, create_context, enqueue_nd_range_kernel, get_device_ids,
         get_platforms, wait_for_events, CLIntDevice, CommandQueue, Context, DeviceType, Event,
         Kernel, OCLErrorKind, Platform,
     },
     init_devices,
+    kernel_cache::KernelCache,
     measure_perf::measure_perf,
-    Error, DEVICES, kernel_cache::KernelCache,
+    Error, DEVICES,
 };
 
 pub fn all_devices() -> Result<Vec<Vec<CLIntDevice>>, Error> {
@@ -36,7 +37,7 @@ pub struct CLDevice {
     pub queue: CommandQueue,
     pub unified_mem: bool,
     pub event_wait_list: RefCell<Vec<Event>>,
-    pub kernel_cache: RefCell<KernelCache>
+    pub kernel_cache: RefCell<KernelCache>,
 }
 
 impl Debug for CLDevice {
@@ -65,8 +66,8 @@ impl TryFrom<CLIntDevice> for CLDevice {
             ctx,
             queue,
             unified_mem,
-            event_wait_list: Default::default(),
-            kernel_cache: Default::default()
+            event_wait_list: RefCell::new(Vec::with_capacity(100)),
+            kernel_cache: Default::default(),
         })
     }
 }
@@ -133,46 +134,37 @@ impl CLDevice {
         lws: Option<&[usize; 3]>,
         offset: Option<[usize; 3]>,
     ) -> Result<(), Error> {
-        let mut event = [std::ptr::null_mut(); 1];
-        let lws = match lws {
-            Some(lws) => lws.as_ptr(),
-            None => std::ptr::null(),
-        };
-        let offset = match offset {
-            Some(offset) => offset.as_ptr(),
-            None => std::ptr::null(),
-        };
-
-        let value = unsafe {
-            clEnqueueNDRangeKernel(
-                self.queue.0,
-                kernel.0,
-                wd as u32,
-                offset,
-                gws.as_ptr(),
+        let event = unsafe {
+            enqueue_nd_range_kernel(
+                &self.queue,
+                kernel,
+                wd,
+                gws,
                 lws,
-                0,
-                std::ptr::null(),
-                event.as_mut_ptr() as *mut cl_event,
+                offset,
+                Some(&self.event_wait_list.borrow()),
             )
-        };
+        }?;
 
-        if value != 0 {
-            return Err(Error::from(OCLErrorKind::from_value(value)));
+        {
+            let mut event_wait_list = self.event_wait_list.borrow_mut();
+            event_wait_list.clear();
+            event_wait_list.push(event);
         }
 
-        self.event_wait_list.borrow_mut().push(Event(event[0]));
+        // self.wait_for_events().unwrap();
 
         Ok(())
     }
 
     #[inline]
     pub fn wait_for_events(&self) -> Result<(), Error> {
-        unsafe { wait_for_events(&self.event_wait_list.borrow())?; }
+        unsafe {
+            wait_for_events(&self.event_wait_list.borrow())?;
+        }
         self.event_wait_list.borrow_mut().clear();
         Ok(())
     }
-
 
     /// Context of the OpenCL device.
     #[inline]
@@ -229,9 +221,14 @@ mod tests {
     #[test]
     fn test_get_fastest() {
         let device = CLDevice::fastest().unwrap();
-        unsafe { create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 10000, None).unwrap() };
+        unsafe {
+            create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 10000, None).unwrap()
+        };
         println!("device name: {}", device.device.get_name().unwrap());
-        unsafe { create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 9423 * 123, None).unwrap() };
+        unsafe {
+            create_buffer::<f32>(&device.ctx, MemFlags::MemReadWrite as u64, 9423 * 123, None)
+                .unwrap()
+        };
 
         println!(
             "{}",

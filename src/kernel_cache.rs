@@ -23,12 +23,16 @@ impl KernelCache {
         }*/
 
         let program = unsafe { create_program_with_source(&device.ctx, src)? };
-        unsafe { build_program(&program, &[device.device], Some("-cl-std=CL1.2"))?; }//-cl-single-precision-constant
+        unsafe {
+            build_program(&program, &[device.device], Some("-cl-std=CL1.2"))?;
+        } //-cl-single-precision-constant
 
-        let kernel = unsafe { create_kernels_in_program(&program)?
-            .into_iter()
-            .next()
-            .ok_or(OCLErrorKind::InvalidKernel)? };
+        let kernel = unsafe {
+            create_kernels_in_program(&program)?
+                .into_iter()
+                .next()
+                .ok_or(OCLErrorKind::InvalidKernel)?
+        };
 
         self.kernel_cache.insert(src.to_string(), kernel);
         Ok(self.kernel_cache.get(src).unwrap())
@@ -37,7 +41,7 @@ impl KernelCache {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Error, CLDevice};
+    use crate::{CLDevice, Error};
 
     use super::KernelCache;
     use std::collections::HashMap;
