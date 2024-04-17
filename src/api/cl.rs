@@ -440,7 +440,7 @@ pub unsafe fn enqueue_copy_buffer<T>(
     dst_offset: usize,
     size: usize,
     event_wait_list: Option<&[Event]>,
-) -> Result<(), Error> {
+) -> Result<Event, Error> {
     let mut events = [std::ptr::null_mut(); 1];
 
     let (num_events_in_wait_list, event_wait_list) = extract_event_wait_list(event_wait_list);
@@ -461,7 +461,7 @@ pub unsafe fn enqueue_copy_buffer<T>(
     if value != 0 {
         return Err(Error::from(OCLErrorKind::from_value(value)));
     }
-    wait_for_event(Event(events[0]))
+    Ok(Event(events[0]))
 }
 
 pub unsafe fn enqueue_copy_buffers<T, I>(
@@ -521,7 +521,7 @@ pub unsafe fn enqueue_full_copy_buffer<T>(
     dst_mem: *mut c_void,
     size: usize,
     event_wait_list: Option<&[Event]>,
-) -> Result<(), Error> {
+) -> Result<Event, Error> {
     enqueue_copy_buffer::<T>(cq, src_mem, dst_mem, 0, 0, size, event_wait_list)
 }
 

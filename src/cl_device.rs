@@ -1,10 +1,8 @@
-use std::{cell::RefCell, fmt::Debug, time::Duration};
+use std::{cell::RefCell, ffi::c_void, fmt::Debug, time::Duration};
 
 use crate::{
     api::{
-        create_command_queue, create_context, enqueue_nd_range_kernel, get_device_ids,
-        get_platforms, wait_for_events, CLIntDevice, CommandQueue, Context, DeviceType, Event,
-        Kernel, OCLErrorKind, Platform,
+        create_command_queue, create_context, enqueue_full_copy_buffer, enqueue_nd_range_kernel, enqueue_read_buffer, enqueue_write_buffer, get_device_ids, get_platforms, wait_for_events, CLIntDevice, CommandQueue, Context, DeviceType, Event, Kernel, OCLErrorKind, Platform
     },
     init_devices,
     kernel_cache::KernelCache,
@@ -155,6 +153,51 @@ impl CLDevice {
         // self.wait_for_events().unwrap();
 
         Ok(())
+    }
+
+    pub unsafe fn enqueue_read_buffer<T>(
+        &self,
+        src_ptr: *mut c_void,
+        dst_slice: &mut [T],
+        block: bool,
+    ) -> Result<Event, Error> {
+        unsafe {
+            enqueue_read_buffer(
+                self.queue(),
+                src_ptr,
+                dst_slice,
+                block,
+                Some(&self.event_wait_list.borrow()),
+            )
+        }
+    }
+
+    pub unsafe fn enqueue_write_buffer<T>(
+        &self,
+        dst_ptr: *mut c_void,
+        src_slice: &[T],
+        block: bool,
+    ) -> Result<Event, Error> {
+        unsafe {
+            enqueue_write_buffer(
+                self.queue(),
+                dst_ptr,
+                &src_slice,
+                block,
+                Some(&self.event_wait_list.borrow()),
+            )
+        }
+    }
+    pub unsafe fn enqueue_full_copy_buffer<T>(
+        &self,
+        src_mem: *mut c_void,
+        dst_mem: *mut c_void,
+        size: usize,
+        event_wait_list: Option<&[Event]>,
+    ) -> Result<Event, Error> {
+        unsafe {
+            enqueue_full_copy_buffer::<T>(self.queue(), src_mem, dst_mem, size, event_wait_list)
+        }
     }
 
     #[inline]
