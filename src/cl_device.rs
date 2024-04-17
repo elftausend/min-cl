@@ -2,7 +2,10 @@ use std::{cell::RefCell, ffi::c_void, fmt::Debug, time::Duration};
 
 use crate::{
     api::{
-        create_command_queue, create_context, enqueue_full_copy_buffer, enqueue_nd_range_kernel, enqueue_read_buffer, enqueue_write_buffer, get_device_ids, get_platforms, wait_for_events, CLIntDevice, CommandQueue, Context, DeviceType, Event, Kernel, OCLErrorKind, Platform
+        create_command_queue, create_context, enqueue_full_copy_buffer, enqueue_map_buffer,
+        enqueue_nd_range_kernel, enqueue_read_buffer, enqueue_write_buffer, get_device_ids,
+        get_platforms, wait_for_events, CLIntDevice, CommandQueue, Context, DeviceType, Event,
+        Kernel, OCLErrorKind, Platform,
     },
     init_devices,
     kernel_cache::KernelCache,
@@ -188,15 +191,36 @@ impl CLDevice {
             )
         }
     }
+
     pub unsafe fn enqueue_full_copy_buffer<T>(
         &self,
         src_mem: *mut c_void,
         dst_mem: *mut c_void,
         size: usize,
-        event_wait_list: Option<&[Event]>,
     ) -> Result<Event, Error> {
         unsafe {
-            enqueue_full_copy_buffer::<T>(self.queue(), src_mem, dst_mem, size, event_wait_list)
+            enqueue_full_copy_buffer::<T>(
+                self.queue(),
+                src_mem,
+                dst_mem,
+                size,
+                Some(&self.event_wait_list.borrow()),
+            )
+        }
+    }
+
+    pub unsafe fn unified_ptr<T>(&self, ptr: *mut c_void, len: usize) -> Result<*mut T, Error> {
+        unsafe {
+            enqueue_map_buffer::<T>(
+                self.queue(),
+                ptr,
+                true,
+                2 | 1,
+                0,
+                len,
+                Some(&self.event_wait_list.borrow()),
+            )
+            .map(|ptr| ptr as *mut T)
         }
     }
 
